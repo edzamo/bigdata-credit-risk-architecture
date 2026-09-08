@@ -1,3 +1,7 @@
+<<<<<<< HEAD
+# bigdata-credit-risk-architecture
+ecosistema de bigdata poc
+=======
 # Bigdata Credit Risk Architecture
 
 Diseño e implementación de un ecosistema de Big Data (arquitectura de medalla — Bronze / Silver / Gold) para analizar la evolución del riesgo crediticio en entidades financieras, integrando datos crediticios, macroeconómicos y de mercado.
@@ -16,3 +20,4 @@ Python · PySpark · PostgreSQL · Parquet · Power BI · Docker (on-premise).
 
 ---
 Nota: los insumos originales del proyecto (comunicaciones y documento de tesis) se mantienen fuera de este repositorio por confidencialidad.
+>>>>>>> 428ca83 (Alcance técnico y arquitectura del ecosistema Big Data de riesgo crediticio)
