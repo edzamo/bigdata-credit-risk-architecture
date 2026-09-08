@@ -1,0 +1,10 @@
+# Insumos originales del cliente (chat con nombres reales, documento de tesis) — no publicar
+kick-off-project.md
+Plantilla de Proyecto de IEEE APR.docx
+
+# Entorno local
+.env
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
