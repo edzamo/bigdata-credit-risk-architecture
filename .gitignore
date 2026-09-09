@@ -18,4 +18,5 @@ __pycache__/
 src/data/*
 !src/data/.gitkeep
 src/notebooks/*.ipynb
+src/notebooks/.ipynb_checkpoints/
 !src/notebooks/.gitkeep

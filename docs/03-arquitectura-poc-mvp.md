@@ -18,9 +18,11 @@ Dado que es un proyecto de tesis y el hito inmediato es demostrar el pipeline fu
 | PostgreSQL para datos estructurados/KPIs de Gold | Apache Airflow (orquestación automática) — el pipeline se dispara manualmente o con un script |
 | Spark en **modo local** (single container, sin cluster master/worker) | Spark cluster real (1 master + N workers) — solo si el hardware del cliente lo permite |
 | Jupyter para exploración y validación de cada capa | Great Expectations (validación de calidad de datos formal) |
-| Power BI (fuera de Docker, se conecta a Postgres/Parquet) | Modelos ML servidos (Random Forest/XGBoost) — la capa Gold deja los features listos, el modelado es iteración 2 |
+| **Metabase** (Capa 6 · Consumo, dashboard open source dentro de Docker) | Modelos ML servidos (Random Forest/XGBoost) — la capa Gold deja los features listos, el modelado es iteración 2 |
 
 **Justificación de Spark en modo local (no cluster):** el documento de tesis exige "procesamiento distribuido" pero no especifica número de nodos. Un cluster master/worker en contenedores separados consume RAM adicional solo por overhead de coordinación, sin aportar valor real en un dataset de ~215K filas corriendo en una sola máquina. Spark en `local[*]` sigue usando la misma API distribuida (RDD/DataFrame, particionamiento, planificador Catalyst) — cumple el requisito académico y de arquitectura, y dejamos el cluster real documentado como camino de escalamiento (sección 6).
+
+**Capa 6 · Consumo:** implementada con **Metabase** (open source, dentro de Docker, corre en el mismo Linux que todo lo demás) — es la herramienta de dashboard de esta arquitectura, consultando `gold_credit_risk_kpis` en PostgreSQL.
 
 ---
 
@@ -46,17 +48,17 @@ flowchart TB
         end
 
         subgraph STRUCT["Almacenamiento estructurado"]
-            PG[("PostgreSQL\nKPIs / Gold consultable por Power BI")]
+            PG[("PostgreSQL\nKPIs / Gold consultable por BI")]
         end
 
         subgraph DEV["Herramientas de soporte"]
             JUPYTER["Jupyter Lab\n(exploración, validación por capa)"]
             ADMINER["Adminer\n(UI liviana Postgres)"]
         end
-    end
 
-    subgraph CONSUMO["Capa 6 · Consumo (fuera de Docker)"]
-        PBI["Power BI Desktop\n(host del cliente)"]
+        subgraph CONSUMO["Capa 6 · Consumo"]
+            METABASE["Metabase\ndashboard open source"]
+        end
     end
 
     KAGGLE --> LOADER
@@ -68,14 +70,14 @@ flowchart TB
     SPARK -->|"write gold (KPIs)"| PG
     JUPYTER -.->|"valida cada capa"| MINIO
     ADMINER -.-> PG
-    PG -->|"ODBC/JDBC"| PBI
-    MINIO -.->|"opcional: Parquet directo"| PBI
+    PG -->|"consulta SQL"| METABASE
 ```
 
 **Notas de diseño:**
 - **Un solo contenedor `spark-processing`** ejecuta ingesta + Bronze + Silver + Gold (mismo runtime Python/PySpark) para minimizar el número de imágenes y RAM total. La separación de responsabilidades se resuelve por **código** (módulos `ingestion/`, `processing/`, `aggregations/`), no por contenedor — coherente con la estructura de carpetas ya definida en `CLAUDE.md`.
-- **MinIO es la única fuente de verdad del Data Lake.** Postgres solo recibe la capa Gold ya agregada (KPIs), para que Power BI tenga una fuente relacional simple sin necesitar drivers Parquet/S3.
-- Power BI se deja **fuera de Docker** porque Power BI Desktop requiere Windows y no tiene imagen Docker oficial viable para esta capa — se conecta al Postgres expuesto por el compose.
+- **MinIO es la única fuente de verdad del Data Lake.** Postgres solo recibe la capa Gold ya agregada (KPIs), para que Metabase tenga una fuente relacional simple sin necesitar drivers Parquet/S3.
+- **Metabase corre dentro de Docker** (mismo Linux/on-premise que todo el stack) como implementación de la Capa 6 · Consumo — arma dashboards por SQL/clics sobre `gold_credit_risk_kpis`, sin depender de un sistema operativo distinto ni de licencias externas.
+- Metabase guarda su propio metadata (dashboards, usuarios) en un archivo H2 embebido con volumen propio (`metabase-data`) — deliberadamente separado de `postgres-data`, para no mezclar el estado de la app de BI con los datos de negocio del pipeline.
 
 ---
 
@@ -92,6 +94,7 @@ flowchart LR
         H9080["localhost:9080"]
         H9040["localhost:9040"]
         H9888["localhost:9888"]
+        H9030["localhost:9030"]
     end
 
     subgraph NET["bigdata-net (bridge, interno)"]
@@ -100,6 +103,7 @@ flowchart LR
         ADMINER["adminer:8080"]
         SPARK["spark-processing:4040"]
         JUPYTER["jupyter:8888"]
+        METABASE["metabase:3000"]
     end
 
     H9000 --> MINIO
@@ -108,10 +112,12 @@ flowchart LR
     H9080 --> ADMINER
     H9040 --> SPARK
     H9888 --> JUPYTER
+    H9030 --> METABASE
 
     MINIO <-->|"DNS interno por nombre de servicio"| SPARK
     PG <-->|"DNS interno"| SPARK
     PG <-->|"DNS interno"| ADMINER
+    PG <-->|"DNS interno"| METABASE
     MINIO <-->|"DNS interno"| JUPYTER
 ```
 
@@ -119,8 +125,9 @@ flowchart LR
 |---|---|---|---|
 | MinIO API (S3) | 9000 | **9000** | Acceso S3 desde Spark/Python (`boto3`, `s3a://`) |
 | MinIO Console (UI web) | 9001 | **9001** | Explorar buckets bronze/silver/gold desde el navegador |
-| PostgreSQL | 5432 | **9432** | Conexión JDBC/ODBC desde Power BI, Adminer, Spark |
+| PostgreSQL | 5432 | **9432** | Conexión JDBC/ODBC desde Adminer, Spark, Metabase |
 | Adminer (UI Postgres) | 8080 | **9080** | Inspección rápida de tablas Gold sin instalar pgAdmin |
+| Metabase (dashboard) | 3000 | **9030** | Capa 6 · Consumo — dashboards visuales sobre `gold_credit_risk_kpis` |
 | Spark UI (driver, modo local) | 4040 | **9040** | Ver jobs/stages del pipeline mientras corre |
 | Jupyter Lab | 8888 | **9888** | Notebooks de validación por capa (bronze/silver/gold) |
 
@@ -230,7 +237,8 @@ Meta explícita del cliente: que corra en **una sola máquina/VM** sin fricción
 | `spark-processing` (driver + executor local) | 3 GB | 2.0 | El consumidor de RAM principal; `local[2]` recomendado |
 | `jupyter` | 1 GB | 0.5 | Comparte imagen/entorno con `spark-processing` si se desea ahorrar espacio |
 | `adminer` | 64 MB | 0.25 | UI liviana, sin estado |
-| **Total aproximado** | **~4.8 GB** | **~3.75 vCPU** | Deja margen sobre una VM de **8 GB RAM / 4 vCPU** (mínimo recomendado) |
+| `metabase` | 1.5 GB | 1.0 | JVM (Clojure) — el segundo mayor consumidor de RAM tras Spark; metadata propia en volumen `metabase-data` |
+| **Total aproximado** | **~6.3 GB** | **~4.75 vCPU** | Con Metabase agregado, el mínimo recomendado de VM sube a **10 GB RAM / 4 vCPU** (los límites de CPU son techos, no reservas — 4 vCPU físicos siguen alcanzando) |
 
 Si el equipo del cliente tiene menos de 8 GB disponibles para Docker, se puede: (a) fusionar `jupyter` dentro de `spark-processing` (mismo contenedor, distinto comando), o (b) correr Spark con `local[1]` y 2 GB. Ambas opciones quedan como variables de ajuste en `.env`, no como cambio de arquitectura.
 

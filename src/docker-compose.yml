@@ -7,6 +7,7 @@ networks:
 volumes:
   minio-data:
   postgres-data:
+  metabase-data:
 
 services:
   minio:
@@ -155,6 +156,29 @@ services:
           cpus: "2.0"
     restart: "no"
 
+  metabase:
+    image: metabase/metabase:v0.58-lts
+    container_name: bigdata-metabase
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # Metabase guarda su propio metadata (dashboards, preguntas, usuarios) en un archivo H2
+      # embebido, separado del Postgres del negocio (que solo tiene KPIs de Gold) — así no se
+      # mezcla la app de BI con los datos del pipeline.
+      MB_DB_FILE: /metabase-data/metabase.db
+    ports:
+      - "9030:3000"   # Dashboard Metabase (Capa 6 · Consumo, alternativa open source a Power BI)
+    volumes:
+      - metabase-data:/metabase-data
+    networks:
+      - bigdata-net
+    deploy:
+      resources:
+        limits:
+          memory: 1.5G
+          cpus: "1.0"
+
   jupyter:
     build:
       context: ./docker/spark-processing
@@ -162,7 +186,7 @@ services:
     depends_on:
       - spark-processing
     command: >
-      jupyter lab --ip=0.0.0.0 --port=8888 --no-browser
+      jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root
       --NotebookApp.token='' --NotebookApp.password=''
       --notebook-dir=/opt/app/notebooks
     environment:
