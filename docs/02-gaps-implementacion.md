@@ -1,11 +1,11 @@
 # Arquitectura Big Data — Riesgo Crediticio
 ### Memo de gaps — hito Docker + medallón hasta Gold
 **Fecha:** 08 de septiembre de 2026
-**Ref:** `kick-off-project.md`, `entregables/01-alcance-tecnico.md`, `Plantilla de Proyecto de IEEE APR.docx` (Capítulo II)
+**Ref:** `docs/kick-off-project.md`, `docs/01-alcance-tecnico.md`, `docs/Plantilla de Proyecto de IEEE APR.docx` (Capítulo II)
 
 Diagnóstico de brechas entre lo que exige el revisor para el próximo avance y lo que existe hoy en el proyecto, más la ruta de implementación para cerrarlas.
 
-> ✅ **Entorno:** el cliente confirma implementación **on-premise con Docker**, sin proveedor cloud. Coincide con lo insinuado por el mensaje del revisor y con lo ya documentado en `entregables/01-alcance-tecnico.md` (sección 4).
+> ✅ **Entorno:** el cliente confirma implementación **on-premise con Docker**, sin proveedor cloud. Coincide con lo insinuado por el mensaje del revisor y con lo ya documentado en `docs/01-alcance-tecnico.md` (sección 4).
 
 ---
 
@@ -74,6 +74,9 @@ Las fuentes macroeconómicas (World Bank, IMF, FRED, etc.) y la capa de orquesta
 2. ¿Ya existen credenciales/API keys para las fuentes macroeconómicas, o se gestionan como parte de esta consultoría? (No bloquea el hito actual, pero sí la segunda iteración).
 3. ¿Se autoriza evaluar Delta Lake como alternativa a Parquet plano para soportar `merge`/upsert idempotente en Silver/Gold, o se mantiene estrictamente lo especificado en el documento (Parquet)?
 4. ¿Hay fecha límite del revisor para este checkpoint, más allá de "el siguiente avance"? Esto define si conviene priorizar solo el dataset principal o intentar incluir alguna fuente macro desde ya.
+5. **¿La fuente de datos crediticios es el dataset público de Kaggle (Home Credit Default Risk, anonimizado, sin vínculo a una entidad real) o existe intención de conectar/simular datos de una entidad financiera específica (API propia, core bancario, Open Banking)?** El documento, tal como está redactado, solo referencia el dataset Kaggle y APIs macro públicas — no menciona ninguna fuente propietaria. Esto es relevante porque:
+   - Si es solo Kaggle + fuentes macro públicas → la ingesta ya planteada (`credit_bronze_loader.py`) es suficiente, sin autenticación corporativa ni tratamiento de PII real.
+   - Si en algún momento se busca conectar/simular una fuente específica de una entidad financiera → cambia el diseño de la capa de ingesta (conector distinto, seguridad de credenciales, posible anonimización adicional) y debería quedar explícito en el Capítulo II antes de implementarlo, ya que hoy el documento no lo contempla.
 
 ---
 

@@ -1,6 +1,11 @@
 # Insumos originales del cliente (chat con nombres reales, documento de tesis) — no publicar
-kick-off-project.md
-Plantilla de Proyecto de IEEE APR.docx
+docs/kick-off-project.md
+docs/Plantilla de Proyecto de IEEE APR.docx
+~$*.docx
+
+# Configuración interna de Claude Code (agentes, prompts de trabajo) — herramienta de la
+# consultoría, no es parte del entregable técnico de la tesis
+.claude/
 
 # Entorno local
 .env
@@ -8,3 +13,9 @@ Plantilla de Proyecto de IEEE APR.docx
 __pycache__/
 *.pyc
 .DS_Store
+
+# Datos y notebooks locales (no versionar datasets pesados)
+src/data/*
+!src/data/.gitkeep
+src/notebooks/*.ipynb
+!src/notebooks/.gitkeep
