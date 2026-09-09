@@ -69,3 +69,5 @@ Ningún puerto usa 8080 (se reservó el rango 90xx en adelante) para evitar choq
 
 ---
 Nota: los insumos originales del proyecto (comunicaciones y documento de tesis del cliente) se mantienen fuera de este repositorio por confidencialidad.
+
+100 9-sep-2026
